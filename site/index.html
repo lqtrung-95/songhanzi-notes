@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ tay SongHanzi</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: cột nội dung một dòng đọc, mục lục dính bên trái ở màn rộng. Mỗi bước học là một "chương" có demo tương tác. */
+:root {
+  --bg: #EDF1F5;
+  --surface: #FFFFFF;
+  --ink: #16222E;
+  --muted: #566575;
+  --line: #D3DBE4;
+  --accent: #2B50E6;
+  --accent-soft: #E3E9FD;
+  --ok: #0E7A4F;
+  --ok-soft: #DDF3E8;
+  --warn: #9A4A06;
+  --warn-soft: #FBEBD3;
+  --bad: #B42318;
+  --bad-soft: #FBE1DE;
+  --code-bg: #F2F5F9;
+  --font-body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1620; --surface: #17212D; --ink: #E6EDF5; --muted: #93A3B5; --line: #2A3748;
+    --accent: #8EA5FF; --accent-soft: #1E2B52; --ok: #4ADE9B; --ok-soft: #12332A;
+    --warn: #F5B454; --warn-soft: #3A2B12; --bad: #FF8A80; --bad-soft: #3D1B19; --code-bg: #111A25;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1620; --surface: #17212D; --ink: #E6EDF5; --muted: #93A3B5; --line: #2A3748;
+  --accent: #8EA5FF; --accent-soft: #1E2B52; --ok: #4ADE9B; --ok-soft: #12332A;
+  --warn: #F5B454; --warn-soft: #3A2B12; --bad: #FF8A80; --bad-soft: #3D1B19; --code-bg: #111A25;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.65;
+  padding-block: 24px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 40px; }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); align-self: start; font-size: 14px; }
+nav.toc b { display: block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+nav.toc a { display: block; padding: 6px 0; color: var(--muted); text-decoration: none; border-left: 2px solid var(--line); padding-left: 12px; }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); border-left-color: var(--accent); }
+main { min-width: 0; display: flex; flex-direction: column; gap: 48px; }
+h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.12; font-weight: 800; margin: 0; text-wrap: balance; letter-spacing: -.02em; }
+h2 { font-size: 26px; line-height: 1.25; font-weight: 800; margin: 0 0 12px; text-wrap: balance; letter-spacing: -.01em; }
+h3 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+p { margin: 0 0 12px; max-width: 68ch; }
+.eyebrow { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 10px; }
+.lead { font-size: 18px; color: var(--muted); max-width: 60ch; margin-top: 14px; }
+.status { display: inline-flex; gap: 8px; align-items: center; margin-top: 18px; padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 14px; font-weight: 500; }
+code, pre { font-family: var(--font-mono); font-size: 13px; }
+code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; overflow-wrap: anywhere; }
+pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 0 0 12px; overflow-x: auto; line-height: 1.6; }
+pre code { background: none; padding: 0; overflow-wrap: normal; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+.tablewrap { overflow-x: auto; margin-bottom: 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.tag.keep { background: var(--ok-soft); color: var(--ok); }
+.tag.swap { background: var(--accent-soft); color: var(--accent); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.piece { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.piece p { font-size: 14px; color: var(--muted); margin: 0 0 8px; }
+.piece pre { font-size: 12px; margin: 0; }
+.piece .num { font-family: var(--font-mono); font-size: 12px; color: var(--accent); font-weight: 500; }
+.callout { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 12px; font-size: 15px; max-width: 68ch; }
+.callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+/* demo */
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.chip { position: relative; }
+.chip input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; cursor: pointer; margin: 0; }
+.chip span { display: flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; font-weight: 500; background: var(--surface); }
+.chip input:checked + span { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+.chip input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+.switch { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.switch input { width: 20px; height: 20px; accent-color: var(--accent); }
+button { font: inherit; }
+.btn { min-height: 44px; padding: 0 18px; border-radius: 8px; border: 0; background: var(--accent); color: var(--surface); font-weight: 600; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.btn:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.row-owner { font-size: 12px; font-weight: 600; }
+.empty { padding: 18px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; }
+.log { font-family: var(--font-mono); font-size: 13px; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; min-height: 120px; line-height: 1.7; overflow-x: auto; }
+.log .ok { color: var(--ok); } .log .bad { color: var(--bad); } .log .dim { color: var(--muted); }
+.q { border-top: 1px solid var(--line); padding: 14px 0; }
+.q:first-of-type { border-top: 0; padding-top: 0; }
+.q .ans { margin-top: 10px; padding: 10px 14px; border-radius: 8px; background: var(--ok-soft); color: var(--ink); font-size: 15px; }
+textarea { width: 100%; min-height: 140px; font: inherit; font-size: 15px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; resize: vertical; }
+.check { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 8px 0; cursor: pointer; font-size: 15px; }
+.check input { width: 20px; height: 20px; margin-top: 3px; accent-color: var(--accent); flex: none; }
+.small { font-size: 13px; color: var(--muted); }
+@media (max-width: 820px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  nav.toc { position: static; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+  nav.toc b { width: 100%; }
+  nav.toc a { border-left: 0; padding-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="wrap">
+  <nav class="toc" aria-label="Mục lục">
+    <b>Bước 1</b>
+    <a href="#tong-quan">Supabase là gì</a>
+    <a href="#van-de">Vì sao migration lỗi</a>
+    <a href="#shim">Lớp shim</a>
+    <a href="#demo-migrate">Demo: chạy migration</a>
+    <a href="#demo-rls">Demo: RLS</a>
+    <a href="#chay-that">Chạy thật</a>
+    <a href="#tu-kiem-tra">Tự kiểm tra</a>
+    <a href="#ghi-chu">Ghi chú của bạn</a>
+  </nav>
+
+  <main>
+    <header>
+      <div class="eyebrow">SongHanzi · Từ Supabase sang full-stack · Bước 1/7</div>
+      <h1>Chạy 70 migration trên Postgres thuần</h1>
+      <p class="lead">Mục tiêu: hiểu Supabase thực sự cho bạn những gì ở tầng database, rồi tự dựng lại phần đó trong Docker.</p>
+      <div class="status" role="status">Trạng thái: file đã viết xong, chưa chạy vì Docker Desktop chưa bật. Các dòng "dự kiến" bên dưới sẽ được xác nhận khi chạy thật.</div>
+    </header>
+
+    <section id="tong-quan">
+      <h2>Supabase là gì, nhìn từ bên trong</h2>
+      <p>Supabase là một gói gồm Postgres và một số dịch vụ đặt cạnh nó. Chỉ riêng Postgres là thứ ta giữ nguyên. Mỗi dịch vụ còn lại sẽ được thay ở một bước riêng.</p>
+      <div class="panel tablewrap">
+        <table>
+          <thead><tr><th>Thành phần</th><th>Nó làm gì</th><th>Trong SongHanzi</th><th>Xử lý</th></tr></thead>
+          <tbody>
+            <tr><td><b>Postgres</b></td><td>Lưu dữ liệu, chạy SQL</td><td>56 bảng, 32 hàm SQL</td><td><span class="tag keep">Giữ nguyên</span></td></tr>
+            <tr><td><b>PostgREST</b> (qua <code>supabase-js</code>)</td><td>Biến <code>.from('x')</code> thành SQL</td><td>~289 lệnh trong ~91 file</td><td><span class="tag swap">Bước 2 · Drizzle</span></td></tr>
+            <tr><td><b>RLS</b></td><td>Postgres tự lọc hàng theo người gọi</td><td>25 policy</td><td><span class="tag swap">Bước 3 · kiểm quyền ở backend</span></td></tr>
+            <tr><td><b>Auth</b></td><td>Đăng nhập, JWT, ẩn danh, Google</td><td><code>lib/supabase/*</code>, <code>proxy.ts</code></td><td><span class="tag swap">Bước 4 · Better Auth</span></td></tr>
+            <tr><td><b>Realtime</b></td><td>Đẩy thay đổi DB về trình duyệt</td><td>5 hook phòng game</td><td><span class="tag swap">Bước 5 · WebSocket/SSE</span></td></tr>
+            <tr><td><b>Storage</b></td><td>Lưu file (ảnh, âm thanh)</td><td>avatar, TTS</td><td><span class="tag swap">Bước 6 · S3/R2</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="van-de">
+      <h2>Vì sao migration nguyên bản chạy lỗi</h2>
+      <p>Lấy file <code>20260925000005_user_accounts.sql</code> làm ví dụ. Nó dùng 4 thứ mà Postgres thuần không có:</p>
+      <div class="panel tablewrap">
+        <table>
+          <thead><tr><th>Dòng</th><th>Câu lệnh</th><th>Thiếu gì</th></tr></thead>
+          <tbody>
+            <tr><td>5</td><td><code>references auth.users (id)</code></td><td>Schema <code>auth</code> và bảng <code>users</code></td></tr>
+            <tr><td>94</td><td><code>for all to authenticated</code></td><td>Role <code>authenticated</code></td></tr>
+            <tr><td>95</td><td><code>(select auth.uid()) = user_id</code></td><td>Hàm <code>auth.uid()</code></td></tr>
+            <tr><td>195</td><td><code>grant execute ... to service_role</code></td><td>Role <code>service_role</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="small">Toàn repo: 25 file migration nhắc <code>auth.*</code>, 28 hàm <code>security definer</code>, 1 chỗ dùng schema <code>extensions</code>, 1 chỗ chèn vào <code>storage.buckets</code>, 2 chỗ thêm bảng vào publication <code>supabase_realtime</code>.</p>
+    </section>
+
+    <section id="shim">
+      <h2>Lớp shim: dựng lại 6 mảnh</h2>
+      <p>Thay vì sửa 70 file migration, ta tạo đúng những thứ chúng cần trước khi chạy. File nằm ở <code>db/compat/00_supabase_shim.sql</code>.</p>
+      <div class="grid2">
+        <div class="piece"><span class="num">1</span><h3>Ba schema</h3><p>Ngăn chứa tên: <code>auth</code>, <code>extensions</code>, <code>storage</code>.</p><pre><code>create schema if not exists auth;</code></pre></div>
+        <div class="piece"><span class="num">2</span><h3>Ba role</h3><p>Nhãn để gán quyền. <code>service_role</code> bỏ qua RLS, dành cho server.</p><pre><code>create role anon nologin;
+create role authenticated nologin;
+create role service_role
+  nologin bypassrls;</code></pre></div>
+        <div class="piece"><span class="num">3</span><h3>auth.users</h3><p>Bảng thường, để khoá ngoại hoạt động. Bước 4 sẽ thay.</p><pre><code>create table auth.users (
+  id uuid primary key
+    default gen_random_uuid(),
+  email text, is_anonymous boolean
+);</code></pre></div>
+        <div class="piece"><span class="num">4</span><h3>auth.uid()</h3><p>Trả về "người đang gọi là ai", đọc từ biến phiên. RLS dựa vào hàm này.</p><pre><code>select nullif(
+  current_setting(
+   'request.jwt.claim.sub', true),
+  '')::uuid</code></pre></div>
+        <div class="piece"><span class="num">5</span><h3>storage.buckets</h3><p>Migration chèn bucket <code>avatars</code> vào đây.</p><pre><code>create table storage.buckets (
+  id text primary key,
+  name text, public boolean
+);</code></pre></div>
+        <div class="piece"><span class="num">6</span><h3>Publication realtime</h3><p>Danh sách bảng mà Postgres sao chép thay đổi ra ngoài. Chỉ cần tồn tại.</p><pre><code>create publication
+  supabase_realtime;</code></pre></div>
+      </div>
+      <div class="callout">Ý chính: Supabase không có phép màu ở tầng database. Phần "đắt" nằm ở Auth, Realtime và PostgREST, là những thứ ta sẽ thay ở các bước sau.</div>
+    </section>
+
+    <section id="demo-migrate">
+      <h2>Demo: chạy migration có và không có shim</h2>
+      <p>Mô phỏng cách script xử lý file <code>user_accounts</code>. Bật hoặc tắt shim rồi bấm chạy.</p>
+      <div class="panel">
+        <div class="controls">
+          <label class="switch"><input type="checkbox" id="shimToggle" checked> Đã chạy shim trước</label>
+          <button class="btn" id="runMig" type="button">Chạy migration</button>
+          <button class="btn ghost" id="resetMig" type="button">Xoá log</button>
+        </div>
+        <div class="log" id="migLog" aria-live="polite"><span class="dim">Nhấn "Chạy migration" để xem kết quả.</span></div>
+        <p class="small" style="margin-top:10px">Kết quả này là mô phỏng theo cách Postgres báo lỗi; lần chạy thật sẽ được ghi lại ở mục "Chạy thật".</p>
+      </div>
+    </section>
+
+    <section id="demo-rls">
+      <h2>Demo: RLS lọc hàng như thế nào</h2>
+      <p>RLS (Row Level Security) là luật nằm trong Postgres: "mỗi người chỉ thấy hàng của mình". Bảng bên dưới là <code>user_cards</code> với dữ liệu minh hoạ. Chọn danh tính, bật hoặc tắt RLS, rồi xem kết quả của <code>select * from user_cards</code>.</p>
+      <div class="panel">
+        <fieldset style="border:0;padding:0;margin:0 0 6px">
+          <legend class="small" style="padding:0;margin-bottom:6px">Đang kết nối với danh tính</legend>
+          <div class="controls" id="idChips">
+            <label class="chip"><input type="radio" name="who" value="an" checked><span>Người dùng An</span></label>
+            <label class="chip"><input type="radio" name="who" value="binh"><span>Người dùng Bình</span></label>
+            <label class="chip"><input type="radio" name="who" value="guest"><span>Chưa đăng nhập</span></label>
+            <label class="chip"><input type="radio" name="who" value="super"><span>postgres (superuser)</span></label>
+          </div>
+        </fieldset>
+        <label class="switch"><input type="checkbox" id="rlsToggle" checked> Bật RLS trên bảng <code>user_cards</code></label>
+        <pre id="rlsSql"></pre>
+        <div class="tablewrap" id="rlsResult"></div>
+        <div class="callout warn" id="rlsNote"></div>
+      </div>
+    </section>
+
+    <section id="chay-that">
+      <h2>Chạy thật</h2>
+      <p>Làm theo thứ tự. Mỗi lệnh chạy ở thư mục <code>songhanzi-fullstack</code>.</p>
+      <pre><code># 1. Khởi động Postgres (cần Docker Desktop đang chạy)
+docker compose up -d
+
+# 2. Chạy shim và 70 migration
+bash db/apply-migrations.sh
+
+# 3. Vào psql trong container để tự kiểm tra
+docker exec -it songhanzi-db psql -U postgres -d songhanzi</code></pre>
+      <p>Trong <code>psql</code>, thử các lệnh sau và ghi lại kết quả vào mục ghi chú:</p>
+      <pre><code>\dt public.*                                   -- liệt kê bảng
+select count(*) from public.schema_migrations; -- số migration đã chạy
+\d public.user_cards                           -- cấu trúc bảng, index, policy</code></pre>
+      <div class="panel">
+        <h3 style="margin-bottom:6px">Danh sách việc</h3>
+        <label class="check"><input type="checkbox" data-k="docker"> Bật Docker Desktop, <code>docker compose up -d</code> báo healthy</label>
+        <label class="check"><input type="checkbox" data-k="migrate"> Script migrate chạy hết, không lỗi</label>
+        <label class="check"><input type="checkbox" data-k="psql"> Tự vào <code>psql</code> và chạy <code>\dt</code></label>
+        <label class="check"><input type="checkbox" data-k="rls"> Tự chứng minh RLS bằng <code>set_config</code> trong <code>psql</code></label>
+        <label class="check"><input type="checkbox" data-k="explain"> Giải thích lại được "shim làm gì" bằng lời của mình</label>
+      </div>
+    </section>
+
+    <section id="tu-kiem-tra">
+      <h2>Tự kiểm tra</h2>
+      <p>Trả lời trong đầu trước, rồi mới bấm xem đáp án.</p>
+      <div class="panel" id="quiz"></div>
+    </section>
+
+    <section id="ghi-chu">
+      <h2>Ghi chú của bạn</h2>
+      <p>Viết điều bạn hiểu, điều còn mơ hồ và lỗi gặp phải. Nội dung lưu trong trình duyệt này.</p>
+      <label for="notes" class="small">Ghi chú bước 1</label>
+      <textarea id="notes" placeholder="Ví dụ: Em hiểu auth.uid() đọc từ biến phiên. Chưa rõ vì sao superuser bỏ qua RLS..."></textarea>
+      <p class="small" id="saved" aria-live="polite"></p>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  // ---------- lưu cục bộ, an toàn khi bị chặn ----------
+  function get(k) { try { return localStorage.getItem('sh1:' + k); } catch (e) { return null; } }
+  function set(k, v) { try { localStorage.setItem('sh1:' + k, v); } catch (e) {} }
+
+  // ---------- demo migrate ----------
+  var log = document.getElementById('migLog');
+  var shim = document.getElementById('shimToggle');
+  function line(cls, text) { var d = document.createElement('div'); d.className = cls; d.textContent = text; log.appendChild(d); }
+  document.getElementById('runMig').addEventListener('click', function () {
+    log.textContent = '';
+    if (shim.checked) {
+      line('', '→ 00_supabase_shim.sql');
+      line('ok', '  ✓ tạo schema auth, extensions, storage; 3 role; auth.users; auth.uid()');
+    } else {
+      line('dim', '(bỏ qua shim)');
+    }
+    line('', '→ 20260925000005_user_accounts.sql   (BEGIN, chạy trong một giao dịch)');
+    if (shim.checked) {
+      line('ok', '  ✓ create table user_profiles ... references auth.users');
+      line('ok', '  ✓ create policy ... to authenticated using (auth.uid() = user_id)');
+      line('ok', '  ✓ grant execute ... to service_role');
+      line('ok', '  COMMIT, ghi vào schema_migrations');
+    } else {
+      line('bad', '  ✗ ERROR: schema "auth" does not exist   (dự kiến)');
+      line('bad', '  ROLLBACK: cờ -1 hủy cả giao dịch, không còn bảng nửa vời');
+      line('dim', '  Script dừng nhờ ON_ERROR_STOP, các file sau không chạy.');
+    }
+  });
+  document.getElementById('resetMig').addEventListener('click', function () {
+    log.innerHTML = '<span class="dim">Nhấn "Chạy migration" để xem kết quả.</span>';
+  });
+
+  // ---------- demo RLS ----------
+  var uuid = { an: 'a1f3…', binh: 'b7c2…' };
+  var rows = [
+    { owner: 'an', term: '城市', meaning: 'thành phố', state: 'Review' },
+    { owner: 'an', term: '唱歌', meaning: 'hát', state: 'Learning' },
+    { owner: 'an', term: '月亮', meaning: 'mặt trăng', state: 'New' },
+    { owner: 'binh', term: '朋友', meaning: 'bạn bè', state: 'Review' },
+    { owner: 'binh', term: '想念', meaning: 'nhớ nhung', state: 'Learning' }
+  ];
+  var names = { an: 'An', binh: 'Bình' };
+  var sqlBox = document.getElementById('rlsSql');
+  var result = document.getElementById('rlsResult');
+  var note = document.getElementById('rlsNote');
+  var rlsToggle = document.getElementById('rlsToggle');
+
+  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function renderRls() {
+    var who = document.querySelector('input[name="who"]:checked').value;
+    var rls = rlsToggle.checked;
+    var sql, visible, msg;
+    if (who === 'super') {
+      sql = '-- nối bằng user postgres (superuser)\nselect * from user_cards;';
+      visible = rows;
+      msg = rls
+        ? 'Superuser và chủ bảng bỏ qua RLS. Vì vậy khi thử trong psql, hãy chạy "set role authenticated;" trước, nếu không bạn sẽ tưởng RLS không hoạt động.'
+        : 'RLS đang tắt nên ai cũng thấy mọi hàng.';
+    } else {
+      var sub = who === 'guest' ? "''" : "'" + uuid[who] + "'";
+      sql = 'set local role authenticated;\nselect set_config(\'request.jwt.claim.sub\', ' + sub + ', true);\n-- auth.uid() = ' + (who === 'guest' ? 'NULL' : uuid[who]) + '\nselect * from user_cards;';
+      if (!rls) { visible = rows; msg = 'RLS tắt: ' + (who === 'guest' ? 'khách chưa đăng nhập' : names[who]) + ' đọc được dữ liệu của người khác. Đây chính là lỗ hổng nếu quên bật RLS hoặc quên kiểm quyền ở backend.'; }
+      else if (who === 'guest') { visible = []; msg = 'auth.uid() trả NULL nên điều kiện "NULL = user_id" không bao giờ đúng, kết quả rỗng.'; }
+      else { visible = rows.filter(function (r) { return r.owner === who; }); msg = 'Policy "auth.uid() = user_id" lọc ngay trong Postgres, câu lệnh của ứng dụng không cần thêm "where".'; }
+    }
+    sqlBox.innerHTML = '<code>' + esc(sql) + '</code>';
+    note.textContent = msg;
+    if (!visible.length) { result.innerHTML = '<div class="empty">0 hàng</div>'; return; }
+    var h = '<table><thead><tr><th>Chủ sở hữu</th><th>term</th><th>meaning</th><th>state</th></tr></thead><tbody>';
+    visible.forEach(function (r) {
+      h += '<tr><td><span class="row-owner">' + esc(names[r.owner]) + '</span></td><td>' + esc(r.term) + '</td><td>' + esc(r.meaning) + '</td><td>' + esc(r.state) + '</td></tr>';
+    });
+    result.innerHTML = h + '</tbody></table><p class="small">' + visible.length + ' hàng</p>';
+  }
+  document.getElementById('idChips').addEventListener('change', renderRls);
+  rlsToggle.addEventListener('change', renderRls);
+  renderRls();
+
+  // ---------- quiz ----------
+  var qs = [
+    ['Tại sao 70 migration nguyên bản chạy lỗi trên Postgres thuần?', 'Chúng dùng schema auth, role authenticated/service_role và hàm auth.uid() mà Supabase dựng sẵn. Postgres thuần không có.'],
+    ['auth.uid() lấy "người đang gọi" từ đâu trong lớp shim?', 'Từ biến phiên request.jwt.claim.sub, đặt bằng set_config. Ở Supabase thật, giá trị này lấy từ JWT của người dùng.'],
+    ['Nối bằng user postgres rồi select thấy hết hàng dù đã bật RLS. Vì sao?', 'Superuser và chủ bảng bỏ qua RLS. Phải "set role authenticated" (hoặc nối bằng role không phải chủ bảng) mới thấy RLS có tác dụng.'],
+    ['Cờ -1 của psql giúp gì khi một migration lỗi giữa chừng?', 'Bọc cả file trong một giao dịch. Lỗi thì rollback toàn bộ, không để lại bảng tạo dở.']
+  ];
+  var quiz = document.getElementById('quiz');
+  qs.forEach(function (q, i) {
+    var d = document.createElement('div'); d.className = 'q';
+    var p = document.createElement('p'); p.style.marginBottom = '8px'; p.textContent = (i + 1) + '. ' + q[0];
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost'; b.textContent = 'Xem đáp án';
+    var a = document.createElement('div'); a.className = 'ans'; a.hidden = true; a.textContent = q[1];
+    b.addEventListener('click', function () { a.hidden = !a.hidden; b.textContent = a.hidden ? 'Xem đáp án' : 'Ẩn đáp án'; });
+    d.appendChild(p); d.appendChild(b); d.appendChild(a); quiz.appendChild(d);
+  });
+
+  // ---------- checklist + ghi chú ----------
+  document.querySelectorAll('input[data-k]').forEach(function (c) {
+    c.checked = get('chk-' + c.dataset.k) === '1';
+    c.addEventListener('change', function () { set('chk-' + c.dataset.k, c.checked ? '1' : '0'); });
+  });
+  var notes = document.getElementById('notes'), saved = document.getElementById('saved'), t;
+  var old = get('notes'); if (old) notes.value = old;
+  notes.addEventListener('input', function () {
+    clearTimeout(t);
+    t = setTimeout(function () { set('notes', notes.value); saved.textContent = 'Đã lưu trong trình duyệt này.'; }, 400);
+  });
+})();
+</script>
+</body>
+</html>
