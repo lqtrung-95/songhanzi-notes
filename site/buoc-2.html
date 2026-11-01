@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bước 2 · Sổ tay SongHanzi</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+.flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin-bottom: 12px; }
+.flow .node { flex: 1 1 130px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: 14px; min-width: 0; }
+.flow .node b { display: block; font-size: 13px; margin-bottom: 2px; }
+.flow .node span { color: var(--muted); font-size: 12px; }
+.flow .arrow { align-self: center; color: var(--accent); font-weight: 800; }
+.lbl { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 4px 0; }
+.changed td { background: var(--bad-soft); }
+.same td { background: transparent; }
+.verdict { padding: 14px 16px; border-radius: 8px; font-size: 15px; background: var(--accent-soft); margin-top: 10px; }
+.verdict.bad { background: var(--bad-soft); color: var(--bad); }
+.verdict.good { background: var(--ok-soft); color: var(--ok); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="toc" aria-label="Mục lục">
+    <b>Bước 2</b>
+    <a href="#van-de">Vấn đề</a>
+    <a href="#demo">Demo: server tin ai?</a>
+    <a href="#code">Code đã viết</a>
+    <a href="#ket-qua">Kết quả test</a>
+    <a href="#bai-hoc">Bài học</a>
+    <a href="#bai-tap">Bài tập của bạn</a>
+    <a href="#tu-kiem-tra">Tự kiểm tra</a>
+    <a href="index.html" style="margin-top:12px;color:var(--accent);font-weight:600">← Bước 1</a>
+    <a href="backend.html" style="color:var(--accent);font-weight:600">Nền tảng backend</a>
+  </nav>
+
+  <main>
+    <header>
+      <div class="eyebrow">SongHanzi · Từ Supabase sang full-stack · Bước 2/7</div>
+      <h1>Thay supabase-js bằng Drizzle, và thêm tầng API</h1>
+      <p class="lead">Tưởng là đổi thư viện, hóa ra là chuyển trách nhiệm phân quyền từ database lên backend. Làm thử với tính năng linh vật (pet).</p>
+      <div class="status" role="status" style="background:var(--ok-soft);color:var(--ok)">Trạng thái: đã chạy thật. 20 test qua (5 trên Postgres thật, 15 ở route), TypeScript và ESLint không lỗi.</div>
+    </header>
+
+    <section id="van-de">
+      <h2>Vấn đề: code cũ chạy trong trình duyệt</h2>
+      <p>File <code>lib/pet/pet-repo.ts</code> gọi thẳng Supabase từ trình duyệt, và RLS là lớp bảo vệ duy nhất. Drizzle kết nối bằng chuỗi có mật khẩu, nên không thể chạy trong trình duyệt. Ta buộc phải thêm một tầng ở giữa.</p>
+      <div class="lbl">Trước</div>
+      <div class="flow">
+        <div class="node"><b>Trình duyệt</b><span>pet-repo.ts</span></div><span class="arrow">→</span>
+        <div class="node"><b>supabase-js</b><span>gọi thẳng</span></div><span class="arrow">→</span>
+        <div class="node"><b>Supabase</b><span>RLS lọc theo auth.uid()</span></div>
+      </div>
+      <div class="lbl">Sau</div>
+      <div class="flow">
+        <div class="node"><b>Trình duyệt</b><span>fetch('/api/pet')</span></div><span class="arrow">→</span>
+        <div class="node"><b>Route handler</b><span>biết ai gọi, validate Zod</span></div><span class="arrow">→</span>
+        <div class="node"><b>pet-db.ts</b><span>Drizzle, where user_id</span></div><span class="arrow">→</span>
+        <div class="node"><b>Postgres</b><span>RLS vẫn bật, lớp thứ hai</span></div>
+      </div>
+      <div class="callout">Điểm cốt lõi: trước đây Postgres tự lọc hàng giúp bạn. Giờ code của bạn phải tự làm, và quên một chỗ là lộ dữ liệu.</div>
+    </section>
+
+    <section id="demo">
+      <h2>Demo: server nên tin ai?</h2>
+      <p>Bạn là Bình, đã đăng nhập. Bạn gửi <code>PUT /api/pet</code> với tên "HACKED" và nhét thêm <code>userId</code> của An vào body. Hai cách viết route cho hai kết quả khác nhau.</p>
+      <div class="panel">
+        <fieldset style="border:0;padding:0;margin:0 0 8px">
+          <legend class="small" style="padding:0;margin-bottom:6px">Route lấy user_id từ đâu?</legend>
+          <div class="controls">
+            <label class="chip"><input type="radio" name="trust" value="session" checked><span>Từ phiên đăng nhập</span></label>
+            <label class="chip"><input type="radio" name="trust" value="body"><span>Từ body client gửi</span></label>
+          </div>
+        </fieldset>
+        <pre id="trustCode"></pre>
+        <div class="controls">
+          <button class="btn" id="send" type="button">Gửi PUT với userId của An</button>
+          <button class="btn ghost" id="reset" type="button">Đặt lại</button>
+        </div>
+        <div class="tablewrap" id="petTable"></div>
+        <div class="verdict" id="petVerdict" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section id="code">
+      <h2>Code đã viết</h2>
+      <p>Sáu việc, mỗi việc một file nhỏ. Tất cả nằm trong repo fork, nhánh <code>learn/step-1-postgres</code>.</p>
+
+      <h3>1. Schema Drizzle: <code>lib/db/schema.ts</code></h3>
+      <p><code>drizzle-kit pull</code> sinh được schema từ database, nhưng bản sinh có nhiều thứ thừa (15 sequence của bảng khác, khoá ngoại trỏ tới bảng chưa khai báo). Ta chọn lọc rồi viết tay. Cột <code>species</code> dùng lại <code>PET_SPECIES</code> của code cũ nên kiểu TypeScript khớp tuyệt đối.</p>
+<pre><code>export const userPet = pgTable("user_pet", {
+  userId: uuid("user_id").primaryKey(),
+  species: text("species", { enum: PET_SPECIES }).notNull(),
+  name: text("name").notNull(),
+  adoptedAt: timestamp("adopted_at", { withTimezone: true, mode: "date" })
+    .defaultNow().notNull(),
+  baseXp: integer("base_xp").default(0).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+    .defaultNow().notNull(),
+});</code></pre>
+
+      <h3>2. Connection pool: <code>lib/db/client.ts</code></h3>
+      <p>Mở kết nối Postgres tốn kém, nên dùng một pool dùng chung. Ở chế độ dev, Next.js nạp lại module liên tục, nên pool được gắn vào <code>globalThis</code> để không mở thêm kết nối mỗi lần nạp lại.</p>
+<pre><code>globalForDb.__pgPool ??= createPool();   // chỉ tạo nếu chưa có</code></pre>
+
+      <h3>3. Truy cập dữ liệu: <code>lib/pet/pet-db.ts</code></h3>
+      <p>Hai hàm. <code>db</code> được truyền vào làm tham số (dependency injection) để test dùng được kết nối riêng. <code>savePet</code> là upsert: chèn, nếu trùng khoá chính thì cập nhật.</p>
+<pre><code>export async function loadPet(db: Db, userId: string) {
+  const [row] = await db.select().from(userPet)
+    .where(eq(userPet.userId, userId)).limit(1);   // luôn có where user_id
+  ...
+}
+
+await db.insert(userPet).values({ userId, ...fields })
+  .onConflictDoUpdate({ target: userPet.userId, set: fields });</code></pre>
+
+      <h3>4. Route: <code>app/api/pet/route.ts</code></h3>
+      <p>Ba tầng chặn theo thứ tự: xác thực (401), validate (400), rồi mới chạm database. <code>userId</code> luôn lấy từ phiên.</p>
+<pre><code>const user = await getCurrentUser();
+if (!user) return Response.json({ error: "auth_required" }, { status: 401 });
+
+const parsed = petBodySchema.safeParse(await req.json().catch(() => null));
+if (!parsed.success) return Response.json({ error: "invalid_request" }, { status: 400 });
+
+await savePet(getDb(), user.id, parsed.data);   // user.id, không phải body</code></pre>
+
+      <h3>5. Đổi ruột <code>pet-repo.ts</code></h3>
+      <p>Hai hàm giữ nguyên chữ ký và cách báo lỗi, nên <code>use-pet.ts</code> không phải sửa dòng nào.</p>
+<pre><code>const res = await fetch("/api/pet");
+if (!res.ok) throw new Error(`pet_load_${res.status}`);</code></pre>
+    </section>
+
+    <section id="ket-qua">
+      <h2>Kết quả test</h2>
+      <div class="panel tablewrap">
+        <table>
+          <thead><tr><th>File</th><th>Chạy trên</th><th>Kiểm</th></tr></thead>
+          <tbody>
+            <tr><td><code>pet-db.test.ts</code> (5)</td><td>Postgres Docker thật</td><td>Chưa có pet thì null; lưu rồi đọc lại đúng; lưu lần hai là ghi đè, vẫn một dòng; A và B không lẫn dữ liệu; ràng buộc của DB vẫn chặn tên rỗng và XP âm</td></tr>
+            <tr><td><code>pet-route.test.ts</code> (15)</td><td>Mock, không cần DB</td><td>401 khi chưa đăng nhập; 8 kiểu body sai đều ra 400; lưu bằng id từ phiên và bỏ qua <code>userId</code> do client gửi; 500 khi DB lỗi</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="bai-hoc">
+      <h2>Bốn bài học</h2>
+      <div class="cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px">
+        <div class="piece"><h3>Đường biên giữ nguyên</h3><p>Nhờ <code>pet-repo.ts</code> giữ chữ ký hàm, giao diện không biết bên dưới đã đổi. Đó là lý do nên có tầng repo.</p></div>
+        <div class="piece"><h3>Theo quy ước có sẵn</h3><p>Kế hoạch ghi 422 cho dữ liệu sai, nhưng repo đã dùng 400 <code>invalid_request</code>. Ta theo repo, vì nhất quán quan trọng hơn sách giáo khoa.</p></div>
+        <div class="piece"><h3>Truyền db vào hàm</h3><p>Hàm nhận <code>db</code> thay vì tự lấy pool, nên test chạy với kết nối riêng và route mock được. Hay gặp trong phỏng vấn.</p></div>
+        <div class="piece"><h3>Bẫy công cụ</h3><p>Vitest 4 cần Node 20 trở lên (máy đang Node 18), và npm trên Windows có thể thiếu file nhị phân của rolldown. Đã ghi vào runbook.</p></div>
+      </div>
+    </section>
+
+    <section id="bai-tap">
+      <h2>Bài tập của bạn: chuyển <code>lyric-offset-repo.ts</code></h2>
+      <p>Cùng khuôn với pet, nhưng có hai điểm khó mới. Bạn tự làm, tôi chỉ review.</p>
+      <div class="panel">
+        <h3>Đề</h3>
+        <p>File <code>lib/user-data/lyric-offset-repo.ts</code> có hai hàm gọi thẳng Supabase từ trình duyệt: <code>fetchRemoteOffset(videoId)</code> và <code>pushRemoteOffset(videoId, offsetSec)</code>. Chuyển chúng sang Drizzle qua một route <code>/api/lyric-offset</code>, giữ nguyên chữ ký hàm và cách xử lý lỗi (lỗi thì bỏ qua, trả <code>null</code>).</p>
+        <h3 style="margin-top:12px">Hai điểm khó</h3>
+        <p><b>Khoá chính ghép.</b> Bảng <code>user_song_progress</code> có khoá chính <code>(user_id, video_id)</code>, nên <code>onConflictDoUpdate</code> nhận <code>target</code> là mảng hai cột.</p>
+        <p><b>Upsert chỉ một cột.</b> Hàng này còn lưu tiến độ nghe. Phần <code>set</code> chỉ được chứa <code>lyricOffsetSec</code> và <code>updatedAt</code>, nếu không bạn xoá mất tiến độ của người dùng.</p>
+        <h3 style="margin-top:12px">Gợi ý và cách tự kiểm</h3>
+        <ul>
+          <li>Thêm bảng vào <code>lib/db/schema.ts</code> (xem cột trong migration <code>user_accounts</code> và <code>lyric_offset</code>).</li>
+          <li>Validate <code>videoId</code> và <code>offsetSec</code> bằng Zod. Hỏi: giá trị nào của offset là vô lý?</li>
+          <li>Viết test theo mẫu <code>pet-db.test.ts</code>, và thêm một ca: lưu offset không làm mất <code>last_position_sec</code> đã có.</li>
+          <li>Hàng này có khoá ngoại tới <code>songs(video_id)</code>, nên test phải tạo một bài hát trước.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="tu-kiem-tra">
+      <h2>Tự kiểm tra</h2>
+      <p>Trả lời trong đầu trước, rồi mới xem đáp án.</p>
+      <div class="panel" id="quiz"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  // ---------- demo: server tin ai ----------
+  var initial = [{ who: 'An', name: 'Mận' }, { who: 'Bình (bạn)', name: 'Bông' }];
+  var state;
+  function reset() { state = { rows: initial.map(function (r) { return { who: r.who, name: r.name }; }), sent: false, trust: currentTrust() }; }
+  function currentTrust() { return document.querySelector('input[name="trust"]:checked').value; }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function render() {
+    var t = currentTrust();
+    document.getElementById('trustCode').innerHTML = '<code>' + (t === 'session'
+      ? 'const user = await getCurrentUser();\nawait savePet(db, user.id, parsed.data);   // id từ phiên'
+      : 'const body = await req.json();\nawait savePet(db, body.userId, body);       // id từ client: SAI') + '</code>';
+    var h = '<table><thead><tr><th>Chủ pet</th><th>Tên pet</th></tr></thead><tbody>';
+    state.rows.forEach(function (r, i) {
+      var changed = r.name !== initial[i].name;
+      h += '<tr class="' + (changed ? 'changed' : 'same') + '"><td>' + esc(r.who) + '</td><td>' + esc(r.name) + (changed ? ' (đã bị đổi)' : '') + '</td></tr>';
+    });
+    document.getElementById('petTable').innerHTML = h + '</tbody></table>';
+    var v = document.getElementById('petVerdict');
+    if (!state.sent) { v.className = 'verdict'; v.textContent = 'Chưa gửi request nào. Chọn cách viết route rồi bấm gửi.'; return; }
+    if (state.trust === 'body') { v.className = 'verdict bad'; v.textContent = 'Pet của An bị đổi thành HACKED. Đây là lỗ hổng IDOR: server tin userId do client gửi.'; }
+    else { v.className = 'verdict good'; v.textContent = 'Chỉ pet của chính Bình bị đổi. Route bỏ qua userId trong body và dùng id từ phiên. Test "bỏ qua userId do client gửi" kiểm chính điều này.'; }
+  }
+  document.getElementById('send').addEventListener('click', function () {
+    reset();
+    state.sent = true;
+    state.trust = currentTrust();
+    state.rows[state.trust === 'body' ? 0 : 1].name = 'HACKED';
+    render();
+  });
+  document.getElementById('reset').addEventListener('click', function () { reset(); render(); });
+  document.querySelectorAll('input[name="trust"]').forEach(function (r) {
+    r.addEventListener('change', function () { reset(); render(); });
+  });
+  reset(); render();
+
+  // ---------- quiz ----------
+  var qs = [
+    ['Vì sao Drizzle không thể chạy trong trình duyệt?', 'Nó kết nối thẳng vào Postgres bằng chuỗi có mật khẩu. Để trong trình duyệt thì ai cũng đọc được. Vì vậy cần route API chạy ở server.'],
+    ['Khi bỏ RLS để dựa vào backend, phải làm gì ở mỗi truy vấn?', 'Luôn thêm điều kiện user_id, và lấy user_id từ phiên đã xác thực, không từ body hay query. Quên một chỗ là lộ dữ liệu người khác.'],
+    ['Hàm savePet nhận db làm tham số thay vì tự lấy pool. Lợi ích là gì?', 'Test dùng được kết nối riêng, và route test mock được lớp này. Đây là dependency injection.'],
+    ['Upsert trên bảng có thêm cột khác (như user_song_progress) cần chú ý gì?', 'Phần set chỉ chứa các cột muốn đổi. Nếu liệt kê thừa, bạn ghi đè dữ liệu khác của hàng đó.'],
+    ['Kế hoạch ghi 422 nhưng code dùng 400. Vì sao?', 'Repo đã có quy ước 400 invalid_request. Frontend đã xử lý mã này, nên nhất quán quan trọng hơn lựa chọn mã "đẹp nhất".']
+  ];
+  var quiz = document.getElementById('quiz');
+  qs.forEach(function (q, i) {
+    var d = document.createElement('div'); d.className = 'q';
+    var p = document.createElement('p'); p.style.marginBottom = '8px'; p.textContent = (i + 1) + '. ' + q[0];
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost'; b.textContent = 'Xem đáp án';
+    var a = document.createElement('div'); a.className = 'ans'; a.hidden = true; a.textContent = q[1];
+    b.addEventListener('click', function () { a.hidden = !a.hidden; b.textContent = a.hidden ? 'Xem đáp án' : 'Ẩn đáp án'; });
+    d.appendChild(p); d.appendChild(b); d.appendChild(a); quiz.appendChild(d);
+  });
+})();
+</script>
+</body>
+</html>
