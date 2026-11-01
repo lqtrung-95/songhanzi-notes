@@ -26,7 +26,7 @@
       <div class="eyebrow">SongHanzi · Từ Supabase sang full-stack · Bước 1/7</div>
       <h1>Chạy 70 migration trên Postgres thuần</h1>
       <p class="lead">Mục tiêu: hiểu Supabase thực sự cho bạn những gì ở tầng database, rồi tự dựng lại phần đó trong Docker.</p>
-      <div class="status" role="status">Trạng thái: file đã viết xong, chưa chạy vì Docker Desktop chưa bật. Các dòng "dự kiến" bên dưới sẽ được xác nhận khi chạy thật.</div>
+      <div class="status" role="status" style="background:var(--ok-soft);color:var(--ok)">Trạng thái: đã chạy thật. 68 migration chạy thành công trên Postgres 17 trong Docker và RLS đã được kiểm chứng (xem mục Chạy thật).</div>
     </header>
 
     <section id="tong-quan">
@@ -36,7 +36,7 @@
         <table>
           <thead><tr><th>Thành phần</th><th>Nó làm gì</th><th>Trong SongHanzi</th><th>Xử lý</th></tr></thead>
           <tbody>
-            <tr><td><b>Postgres</b></td><td>Lưu dữ liệu, chạy SQL</td><td>56 bảng, 32 hàm SQL</td><td><span class="tag keep">Giữ nguyên</span></td></tr>
+            <tr><td><b>Postgres</b></td><td>Lưu dữ liệu, chạy SQL</td><td>55 bảng, 19 hàm SQL</td><td><span class="tag keep">Giữ nguyên</span></td></tr>
             <tr><td><b>PostgREST</b> (qua <code>supabase-js</code>)</td><td>Biến <code>.from('x')</code> thành SQL</td><td>~289 lệnh trong ~91 file</td><td><span class="tag swap">Bước 2 · Drizzle</span></td></tr>
             <tr><td><b>RLS</b></td><td>Postgres tự lọc hàng theo người gọi</td><td>25 policy</td><td><span class="tag swap">Bước 3 · kiểm quyền ở backend</span></td></tr>
             <tr><td><b>Auth</b></td><td>Đăng nhập, JWT, ẩn danh, Google</td><td><code>lib/supabase/*</code>, <code>proxy.ts</code></td><td><span class="tag swap">Bước 4 · Better Auth</span></td></tr>
@@ -61,7 +61,7 @@
           </tbody>
         </table>
       </div>
-      <p class="small">Toàn repo: 25 file migration nhắc <code>auth.*</code>, 28 hàm <code>security definer</code>, 1 chỗ dùng schema <code>extensions</code>, 1 chỗ chèn vào <code>storage.buckets</code>, 2 chỗ thêm bảng vào publication <code>supabase_realtime</code>.</p>
+      <p class="small">Toàn repo: 25 file migration nhắc <code>auth.*</code>, 28 chỗ khai báo <code>security definer</code>, 1 chỗ dùng schema <code>extensions</code>, 1 chỗ chèn vào <code>storage.buckets</code>, 2 chỗ thêm bảng vào publication <code>supabase_realtime</code>.</p>
     </section>
 
     <section id="shim">
@@ -102,7 +102,7 @@ create role service_role
           <button class="btn ghost" id="resetMig" type="button">Xoá log</button>
         </div>
         <div class="log" id="migLog" aria-live="polite"><span class="dim">Nhấn "Chạy migration" để xem kết quả.</span></div>
-        <p class="small" style="margin-top:10px">Kết quả này là mô phỏng theo cách Postgres báo lỗi; lần chạy thật sẽ được ghi lại ở mục "Chạy thật".</p>
+        <p class="small" style="margin-top:10px">Thông báo lỗi lấy từ lần chạy thật: file này chạy một mình trên database trống không có shim, báo đúng lỗi này và còn 0 bảng sau khi rollback.</p>
       </div>
     </section>
 
@@ -141,6 +141,32 @@ docker exec -it songhanzi-db psql -U postgres -d songhanzi</code></pre>
       <pre><code>\dt public.*                                   -- liệt kê bảng
 select count(*) from public.schema_migrations; -- số migration đã chạy
 \d public.user_cards                           -- cấu trúc bảng, index, policy</code></pre>
+
+      <h3 style="margin-top:20px">Kết quả lần chạy thật</h3>
+      <div class="panel tablewrap">
+        <table>
+          <thead><tr><th>Kiểm tra</th><th>Kết quả</th></tr></thead>
+          <tbody>
+            <tr><td>Migration đã chạy</td><td>68 file, không lỗi</td></tr>
+            <tr><td>Bảng trong <code>public</code></td><td>56 (55 của app + <code>schema_migrations</code> do script tạo)</td></tr>
+            <tr><td>Bảng đã bật RLS</td><td>55, tức mọi bảng của app</td></tr>
+            <tr><td>Policy / hàm SQL</td><td>25 policy, 19 hàm</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Thử RLS với 3 hàng của hai người dùng giả:</p>
+      <div class="panel tablewrap">
+        <table>
+          <thead><tr><th>Danh tính</th><th>Thấy bao nhiêu hàng</th></tr></thead>
+          <tbody>
+            <tr><td>Superuser <code>postgres</code></td><td>3 (bỏ qua RLS)</td></tr>
+            <tr><td><code>authenticated</code>, An</td><td>2 (chỉ hàng của An)</td></tr>
+            <tr><td><code>authenticated</code>, chưa đăng nhập</td><td>0</td></tr>
+            <tr><td>Bình ghi hàng mang tên An</td><td>Bị chặn: <code>new row violates row-level security policy</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout warn">Số hàm SQL thật là 19. Lúc đầu tôi đếm ra 32 vì tính cả những lần định nghĩa lại cùng một hàm qua nhiều migration.</div>
       <div class="panel">
         <h3 style="margin-bottom:6px">Danh sách việc</h3>
         <label class="check"><input type="checkbox" data-k="docker"> Bật Docker Desktop, <code>docker compose up -d</code> báo healthy</label>
@@ -192,7 +218,7 @@ select count(*) from public.schema_migrations; -- số migration đã chạy
       line('ok', '  ✓ grant execute ... to service_role');
       line('ok', '  COMMIT, ghi vào schema_migrations');
     } else {
-      line('bad', '  ✗ ERROR: schema "auth" does not exist   (dự kiến)');
+      line('bad', '  ✗ ERROR: schema "auth" does not exist   ');
       line('bad', '  ROLLBACK: cờ -1 hủy cả giao dịch, không còn bảng nửa vời');
       line('dim', '  Script dừng nhờ ON_ERROR_STOP, các file sau không chạy.');
     }
