@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nền tảng backend · Sổ tay SongHanzi</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+.flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin-bottom: 12px; }
+.flow .node { flex: 1 1 130px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: 14px; min-width: 0; }
+.flow .node b { display: block; font-size: 13px; margin-bottom: 2px; }
+.flow .node span { color: var(--muted); font-size: 12px; }
+.flow .arrow { align-self: center; color: var(--accent); font-weight: 800; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.card p { font-size: 14px; color: var(--muted); margin: 4px 0 0; }
+.sel { width: 100%; min-height: 44px; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; min-width: 0; }
+.form4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.verdict { padding: 14px 16px; border-radius: 8px; font-size: 15px; background: var(--accent-soft); }
+.verdict b { font-family: var(--font-mono); font-size: 20px; margin-right: 8px; }
+.codes { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.codebtn { min-height: 44px; min-width: 64px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font-family: var(--font-mono); font-weight: 500; cursor: pointer; }
+.codebtn[aria-pressed="true"] { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+.mono { font-family: var(--font-mono); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="toc" aria-label="Mục lục">
+    <b>Nền tảng backend</b>
+    <a href="#request">Một request đi đâu</a>
+    <a href="#http">HTTP và status code</a>
+    <a href="#api">Thiết kế API</a>
+    <a href="#auth">Xác thực, phân quyền</a>
+    <a href="#db">Database</a>
+    <a href="#nhanh">Cache, job, realtime</a>
+    <a href="#bao-mat">Bảo mật</a>
+    <a href="#van-hanh">Vận hành</a>
+    <a href="#ban-do">Bản đồ vào SongHanzi</a>
+    <a href="#tu-kiem-tra">Tự kiểm tra</a>
+    <a href="index.html" style="margin-top:12px;color:var(--accent);font-weight:600">← Bước 1</a>
+  </nav>
+
+  <main>
+    <header>
+      <div class="eyebrow">Kiến thức nền · đọc song song với các bước</div>
+      <h1>Backend là gì, và một dev frontend cần biết những gì</h1>
+      <p class="lead">Mọi khái niệm dưới đây đều gắn với một chỗ cụ thể trong SongHanzi. Đọc xong mỗi mục, hãy mở file được nhắc tên để thấy nó trong code thật.</p>
+    </header>
+
+    <section id="request">
+      <h2>Một request đi qua những tầng nào</h2>
+      <p>Khi bạn bấm "Lưu từ vựng" trên giao diện, trình duyệt gửi một request. Backend là mọi thứ xảy ra từ lúc request tới nơi cho đến khi có phản hồi.</p>
+      <div class="flow">
+        <div class="node"><b>1. Trình duyệt</b><span>fetch('/api/...')</span></div><span class="arrow">→</span>
+        <div class="node"><b>2. Proxy / middleware</b><span>làm mới phiên, chặn sớm</span></div><span class="arrow">→</span>
+        <div class="node"><b>3. Route handler</b><span>nhận request, đọc body</span></div><span class="arrow">→</span>
+        <div class="node"><b>4. Xác thực + validate</b><span>ai gọi? dữ liệu hợp lệ?</span></div><span class="arrow">→</span>
+        <div class="node"><b>5. Logic + truy cập dữ liệu</b><span>repo, DB, cache, API ngoài</span></div><span class="arrow">→</span>
+        <div class="node"><b>6. Phản hồi</b><span>status + JSON</span></div>
+      </div>
+      <div class="callout">Thói quen quan trọng nhất: với mỗi tính năng, hãy tự hỏi "request đi qua tầng nào, tầng nào chặn nó nếu sai?". Lỗ hổng bảo mật gần như luôn là một tầng bị bỏ sót.</div>
+    </section>
+
+    <section id="http">
+      <h2>HTTP và status code</h2>
+      <p>HTTP là cách trình duyệt và server nói chuyện. Một request có <b>method</b>, <b>đường dẫn</b>, <b>header</b> và (đôi khi) <b>body</b>. Phản hồi có <b>status code</b>, header và body.</p>
+      <pre><code>POST /api/practice/score HTTP/1.1
+Cookie: sb-session=...            ← danh tính nằm ở header
+Content-Type: application/json
+
+{"videoId":"demo","score":80}
+
+HTTP/1.1 201 Created              ← status code
+Content-Type: application/json
+
+{"ok":true}</code></pre>
+      <div class="panel tablewrap">
+        <table>
+          <thead><tr><th>Method</th><th>Dùng để</th><th>An toàn?</th><th>Gọi lặp lại có sao không?</th></tr></thead>
+          <tbody>
+            <tr><td><code>GET</code></td><td>Đọc</td><td>Có, không đổi dữ liệu</td><td>Không sao</td></tr>
+            <tr><td><code>POST</code></td><td>Tạo mới, hành động</td><td>Không</td><td>Có thể tạo trùng</td></tr>
+            <tr><td><code>PUT</code></td><td>Thay cả tài nguyên</td><td>Không</td><td>Không sao (idempotent)</td></tr>
+            <tr><td><code>PATCH</code></td><td>Sửa một phần</td><td>Không</td><td>Tuỳ cách viết</td></tr>
+            <tr><td><code>DELETE</code></td><td>Xoá</td><td>Không</td><td>Không sao (xoá lần 2 vẫn "đã xoá")</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="margin-top:20px">Tra nhanh status code</h3>
+      <div class="codes" id="codes" role="group" aria-label="Chọn status code"></div>
+      <div class="verdict" id="codeInfo" aria-live="polite"></div>
+
+      <h3 style="margin-top:24px">Demo: server chọn status code nào?</h3>
+      <p>401, 403, 404, 422 là nhóm hay bị nhầm. Đặt tình huống và xem server nên trả gì.</p>
+      <div class="panel">
+        <div class="form4">
+          <label class="field">Người gọi
+            <select class="sel" id="fAuth"><option value="yes">Đã đăng nhập</option><option value="no">Chưa đăng nhập</option></select></label>
+          <label class="field">Tài nguyên
+            <select class="sel" id="fExists"><option value="yes">Tồn tại</option><option value="no">Không tồn tại</option></select></label>
+          <label class="field">Chủ sở hữu
+            <select class="sel" id="fOwn"><option value="yes">Là của người gọi</option><option value="no">Của người khác</option></select></label>
+          <label class="field">Dữ liệu gửi lên
+            <select class="sel" id="fBody"><option value="yes">Hợp lệ</option><option value="no">Sai định dạng</option></select></label>
+        </div>
+        <div class="verdict" id="decision" aria-live="polite"></div>
+        <p class="small" style="margin-top:10px">Có hai trường phái cho trường hợp "của người khác": 403 (nói rõ bị cấm) hoặc 404 (giấu sự tồn tại). Với dữ liệu riêng tư, 404 an toàn hơn vì không để lộ rằng tài nguyên có thật.</p>
+      </div>
+    </section>
+
+    <section id="api">
+      <h2>Thiết kế API</h2>
+      <div class="cards">
+        <div class="card"><h3>Đặt tên theo tài nguyên</h3><p><code>GET /api/videos/123</code>, <code>POST /api/feedback</code>. Danh từ, không phải động từ (<code>/getVideo</code>).</p></div>
+        <div class="card"><h3>Phản hồi lỗi thống nhất</h3><p>Luôn cùng một dạng, ví dụ <code>{"error":"..."}</code> kèm status đúng. Frontend xử lý một kiểu thay vì mười kiểu.</p></div>
+        <div class="card"><h3>Phân trang</h3><p>Danh sách dài phải có giới hạn (<code>limit</code>, <code>cursor</code>). Không bao giờ trả "tất cả".</p></div>
+        <div class="card"><h3>Validate đầu vào</h3><p>Mọi thứ từ client đều không đáng tin. Kiểm bằng schema (Zod trong repo), không kiểm bằng niềm tin.</p></div>
+        <div class="card"><h3>Idempotency</h3><p>Người dùng bấm hai lần, mạng retry. Thao tác tạo nên chịu được việc gọi lặp (khoá duy nhất, <code>on conflict do nothing</code>).</p></div>
+        <div class="card"><h3>Tách tầng</h3><p>Route handler chỉ nhận và trả. Logic nằm ở <code>lib/</code>, truy cập DB nằm ở repo. Dễ test, dễ thay Supabase.</p></div>
+      </div>
+    </section>
+
+    <section id="auth">
+      <h2>Xác thực và phân quyền</h2>
+      <p><b>Xác thực (authentication)</b> trả lời "bạn là ai". <b>Phân quyền (authorization)</b> trả lời "bạn được làm gì". Hai thứ này khác nhau, và lỗi phổ biến nhất là có đăng nhập nhưng quên kiểm quyền.</p>
+      <div class="panel tablewrap">
+        <table>
+          <thead><tr><th></th><th>Session (cookie)</th><th>JWT</th></tr></thead>
+          <tbody>
+            <tr><td><b>Lưu ở</b></td><td>Server nhớ, cookie chỉ giữ ID</td><td>Token tự chứa thông tin, ký bằng khoá</td></tr>
+            <tr><td><b>Thu hồi</b></td><td>Dễ: xoá phiên ở server</td><td>Khó: phải chờ hết hạn hoặc giữ danh sách đen</td></tr>
+            <tr><td><b>Hợp với</b></td><td>Web một domain</td><td>Nhiều dịch vụ, mobile</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Cookie đăng nhập cần ba cờ: <code>HttpOnly</code> (JavaScript không đọc được, chống XSS đánh cắp), <code>Secure</code> (chỉ gửi qua HTTPS), <code>SameSite</code> (hạn chế gửi chéo site, chống CSRF).</p>
+      <p><b>OAuth (đăng nhập Google)</b> hiểu gọn: app không bao giờ thấy mật khẩu Google. Google xác minh người dùng rồi trả cho app một mã, app đổi mã đó lấy thông tin tài khoản. SongHanzi xử lý bước này ở <code>app/auth/callback/route.ts</code>.</p>
+    </section>
+
+    <section id="db">
+      <h2>Database</h2>
+      <div class="cards">
+        <div class="card"><h3>Khoá chính, khoá ngoại</h3><p>Mỗi hàng có định danh duy nhất; khoá ngoại bảo đảm không có hàng mồ côi. Xem <code>references auth.users</code> ở bước 1.</p></div>
+        <div class="card"><h3>Index</h3><p>Như mục lục sách: tìm nhanh thay vì đọc cả bảng. Đánh đúng cột bạn hay lọc (<code>user_cards_due_idx</code>). Index thừa làm ghi chậm.</p></div>
+        <div class="card"><h3>Transaction (ACID)</h3><p>Nhiều lệnh thành một khối: hoặc cùng thành công hoặc cùng huỷ. Hàm <code>merge_user_data</code> chạy trong một giao dịch vì lý do đó.</p></div>
+        <div class="card"><h3>Truy vấn N+1</h3><p>Lấy 50 bài rồi gọi DB thêm 50 lần cho từng bài. Sửa bằng <code>join</code> hoặc lấy gộp một lần.</p></div>
+        <div class="card"><h3>Migration</h3><p>Thay đổi schema được ghi thành file có thứ tự, chạy lặp lại được. Đó là thư mục <code>supabase/migrations</code>.</p></div>
+        <div class="card"><h3>ORM</h3><p>Viết truy vấn bằng code có kiểu thay vì chuỗi SQL. Tiện, nhưng bạn vẫn phải hiểu SQL bên dưới. Bước 2 dùng Drizzle.</p></div>
+      </div>
+    </section>
+
+    <section id="nhanh">
+      <h2>Cache, job nền, realtime</h2>
+      <div class="cards">
+        <div class="card"><h3>Cache</h3><p>Lưu kết quả đắt để dùng lại. Khó ở chỗ làm mới: khoá cache phải chứa mọi thứ làm kết quả đổi. Repo dùng <code>videoId + ngôn ngữ + promptVersion</code>.</p></div>
+        <div class="card"><h3>Job nền</h3><p>Việc lâu (gọi LLM phân tích bài hát) không nên bắt request chờ. Đưa vào hàng đợi, trả về ngay, báo tiến độ sau.</p></div>
+        <div class="card"><h3>SSE</h3><p>Server đẩy dữ liệu một chiều về trình duyệt. Hợp với "tiến độ phân tích đang chạy".</p></div>
+        <div class="card"><h3>WebSocket</h3><p>Hai chiều, kết nối giữ mở. Hợp với phòng game nhiều người chơi. Bước 5 thay Realtime bằng thứ này.</p></div>
+        <div class="card"><h3>Rate limit</h3><p>Giới hạn số lần gọi theo người dùng để chặn lạm dụng và giữ chi phí LLM. Xem <code>consume_usage</code>.</p></div>
+      </div>
+    </section>
+
+    <section id="bao-mat">
+      <h2>Bảo mật cơ bản</h2>
+      <div class="panel tablewrap">
+        <table>
+          <thead><tr><th>Lỗi</th><th>Hình dung</th><th>Cách chặn</th></tr></thead>
+          <tbody>
+            <tr><td><b>SQL injection</b></td><td>Người dùng nhập <code>'; drop table ...</code> vào ô tìm kiếm</td><td>Truy vấn tham số hoá, không ghép chuỗi</td></tr>
+            <tr><td><b>XSS</b></td><td>Nội dung người dùng chứa <code>&lt;script&gt;</code> chạy trên trình duyệt người khác</td><td>Escape khi hiển thị; React làm sẵn, đừng dùng <code>dangerouslySetInnerHTML</code> bừa</td></tr>
+            <tr><td><b>CSRF</b></td><td>Trang lạ khiến trình duyệt bạn gửi request kèm cookie đăng nhập</td><td><code>SameSite</code>, token chống CSRF</td></tr>
+            <tr><td><b>IDOR</b></td><td>Đổi <code>/api/cards/12</code> thành <code>/13</code> và xem được thẻ người khác</td><td>Luôn kiểm chủ sở hữu ở server (hoặc RLS)</td></tr>
+            <tr><td><b>Lộ khoá</b></td><td>Khoá API nằm trong code gửi về trình duyệt</td><td>Khoá chỉ ở server; biến <code>NEXT_PUBLIC_*</code> là công khai</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="van-hanh">
+      <h2>Vận hành</h2>
+      <div class="cards">
+        <div class="card"><h3>Biến môi trường</h3><p>Cấu hình và bí mật nằm ngoài code, mỗi môi trường một bộ. Không commit <code>.env</code>.</p></div>
+        <div class="card"><h3>Log và giám sát</h3><p>Lỗi production chỉ thấy qua log và công cụ như Sentry (đã có trong repo). Log phải đủ ngữ cảnh nhưng không chứa dữ liệu nhạy cảm.</p></div>
+        <div class="card"><h3>CI/CD</h3><p>Mỗi lần push, máy chủ tự chạy lint, test, build rồi deploy. Workflow của chính trang này là ví dụ đầu tiên của bạn.</p></div>
+        <div class="card"><h3>Docker</h3><p>Đóng gói app cùng môi trường để chạy giống nhau ở mọi nơi. Bước 1 dùng nó cho Postgres.</p></div>
+      </div>
+    </section>
+
+    <section id="ban-do">
+      <h2>Bản đồ: khái niệm nằm ở đâu trong SongHanzi</h2>
+      <div class="panel tablewrap">
+        <table>
+          <thead><tr><th>Khái niệm</th><th>Mở file này</th></tr></thead>
+          <tbody>
+            <tr><td>Route handler</td><td><code>app/api/practice/score/route.ts</code></td></tr>
+            <tr><td>Proxy / làm mới phiên</td><td><code>proxy.ts</code>, <code>lib/supabase/proxy-session.ts</code></td></tr>
+            <tr><td>OAuth callback</td><td><code>app/auth/callback/route.ts</code></td></tr>
+            <tr><td>Tầng repo (truy cập dữ liệu)</td><td><code>lib/user-data/review-repo.ts</code>, <code>lib/rooms/room-repo.ts</code></td></tr>
+            <tr><td>Rate limit</td><td><code>lib/rate-limit/consume-usage.ts</code></td></tr>
+            <tr><td>Transaction + hàm SQL</td><td><code>supabase/migrations/20260925000005_user_accounts.sql</code></td></tr>
+            <tr><td>Realtime / WebSocket</td><td><code>components/room/use-room.ts</code></td></tr>
+            <tr><td>Test phân quyền</td><td><code>tests/integration/user-data-rls.test.ts</code></td></tr>
+            <tr><td>Giám sát lỗi</td><td><code>instrumentation.ts</code>, <code>sentry.server.config.ts</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tu-kiem-tra">
+      <h2>Tự kiểm tra</h2>
+      <p>Trả lời trong đầu trước, rồi mới xem đáp án.</p>
+      <div class="panel" id="quiz"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  // ---------- tra status code ----------
+  var codes = [
+    ['200', 'OK', 'Thành công, có dữ liệu trả về.'],
+    ['201', 'Created', 'Đã tạo tài nguyên mới (thường sau POST).'],
+    ['204', 'No Content', 'Thành công và không có nội dung trả về (thường sau DELETE).'],
+    ['400', 'Bad Request', 'Request sai cú pháp, ví dụ JSON hỏng.'],
+    ['401', 'Unauthorized', 'Chưa xác thực: không có hoặc sai thông tin đăng nhập. Tên gọi dễ gây hiểu nhầm, nghĩa thật là "chưa đăng nhập".'],
+    ['403', 'Forbidden', 'Đã đăng nhập nhưng không có quyền làm việc này.'],
+    ['404', 'Not Found', 'Không có tài nguyên này (hoặc bạn muốn giấu rằng nó tồn tại).'],
+    ['409', 'Conflict', 'Xung đột với trạng thái hiện tại, ví dụ tạo bản ghi đã tồn tại.'],
+    ['422', 'Unprocessable Content', 'Cú pháp đúng nhưng dữ liệu không hợp lệ về nghĩa (sai schema, thiếu trường).'],
+    ['429', 'Too Many Requests', 'Vượt giới hạn tần suất (rate limit).'],
+    ['500', 'Internal Server Error', 'Lỗi của server, không phải lỗi của client. Cần xem log.'],
+    ['503', 'Service Unavailable', 'Server tạm không phục vụ được (quá tải, đang bảo trì, phụ thuộc bị sập).']
+  ];
+  var wrap = document.getElementById('codes'), info = document.getElementById('codeInfo');
+  function pick(i) {
+    Array.prototype.forEach.call(wrap.children, function (b, j) { b.setAttribute('aria-pressed', String(i === j)); });
+    info.innerHTML = '<b>' + codes[i][0] + '</b>' + codes[i][1] + '<br><span class="small">' + codes[i][2] + '</span>';
+  }
+  codes.forEach(function (c, i) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'codebtn'; b.textContent = c[0];
+    b.addEventListener('click', function () { pick(i); }); wrap.appendChild(b);
+  });
+  pick(4);
+
+  // ---------- demo quyết định status ----------
+  var f = { auth: 'fAuth', exists: 'fExists', own: 'fOwn', body: 'fBody' };
+  function val(k) { return document.getElementById(f[k]).value === 'yes'; }
+  function decide() {
+    var r;
+    if (!val('auth')) r = ['401', 'Chưa đăng nhập, dừng ngay ở bước xác thực, trước cả khi nhìn tài nguyên.'];
+    else if (!val('body')) r = ['422', 'Đã đăng nhập nhưng dữ liệu sai schema. Validate xảy ra trước khi chạm vào database.'];
+    else if (!val('exists')) r = ['404', 'Không có tài nguyên với ID này.'];
+    else if (!val('own')) r = ['404', 'Tài nguyên có thật nhưng của người khác. Trả 404 để không lộ rằng nó tồn tại (một số API chọn 403).'];
+    else r = ['200', 'Qua hết các tầng: đã xác thực, dữ liệu hợp lệ, tài nguyên tồn tại và thuộc về người gọi.'];
+    document.getElementById('decision').innerHTML = '<b>' + r[0] + '</b>' + r[1];
+  }
+  Object.keys(f).forEach(function (k) { document.getElementById(f[k]).addEventListener('change', decide); });
+  decide();
+
+  // ---------- quiz ----------
+  var qs = [
+    ['Người dùng đã đăng nhập sửa ID trên URL và xem được dữ liệu của người khác. Đây là lỗi gì, và sửa ở đâu?', 'IDOR, lỗi phân quyền. Sửa ở server: luôn kiểm chủ sở hữu trước khi trả dữ liệu (hoặc bật RLS).'],
+    ['Khác nhau giữa 401 và 403?', '401: chưa xác thực (không biết bạn là ai). 403: biết bạn là ai nhưng bạn không có quyền.'],
+    ['Vì sao việc phân tích bài hát bằng LLM nên chạy như job nền thay vì trong request?', 'Mất nhiều giây đến hàng chục giây. Request chờ lâu dễ timeout và giữ tài nguyên server. Job nền trả ngay và báo tiến độ qua SSE.'],
+    ['Khoá API LLM đặt trong biến NEXT_PUBLIC_* thì sao?', 'Nó được nhúng vào JavaScript gửi về trình duyệt, ai cũng đọc được. Khoá bí mật chỉ được ở server.'],
+    ['Ghép chuỗi người dùng nhập vào câu SQL có vấn đề gì?', 'SQL injection: người dùng chèn lệnh SQL của họ. Dùng truy vấn tham số hoá hoặc ORM.'],
+    ['Cache phân tích của repo có khoá "videoId + ngôn ngữ + promptVersion". Vì sao có promptVersion?', 'Đổi prompt thì kết quả đổi. Có promptVersion thì bản cache cũ không bị dùng nhầm cho prompt mới.']
+  ];
+  var quiz = document.getElementById('quiz');
+  qs.forEach(function (q, i) {
+    var d = document.createElement('div'); d.className = 'q';
+    var p = document.createElement('p'); p.style.marginBottom = '8px'; p.textContent = (i + 1) + '. ' + q[0];
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost'; b.textContent = 'Xem đáp án';
+    var a = document.createElement('div'); a.className = 'ans'; a.hidden = true; a.textContent = q[1];
+    b.addEventListener('click', function () { a.hidden = !a.hidden; b.textContent = a.hidden ? 'Xem đáp án' : 'Ẩn đáp án'; });
+    d.appendChild(p); d.appendChild(b); d.appendChild(a); quiz.appendChild(d);
+  });
+})();
+</script>
+</body>
+</html>
